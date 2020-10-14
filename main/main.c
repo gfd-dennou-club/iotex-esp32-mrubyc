@@ -10,7 +10,6 @@
 // ENABLE LIBRARY
 #define USE_ESP32_GPIO
 #define USE_ESP32_LEDC
-#define USE_ESP32_ADC
 #define USE_ESP32_I2C
 #define USE_ESP32_WIFI
 #define USE_ESP32_SNTP
@@ -25,9 +24,6 @@
 #endif
 #ifdef USE_ESP32_LEDC
 #include "models/pwm.h"
-#endif
-#ifdef USE_ESP32_ADC
-#include "models/adc.h"
 #endif
 #ifdef USE_ESP32_I2C
 #include "models/i2c.h"
@@ -94,9 +90,6 @@ void app_main(void) {
 #ifdef USE_ESP32_LEDC
   mrbc_mruby_esp32_ledc_gem_init(0);
 #endif
-#ifdef USE_ESP32_ADC
-  mrbc_mruby_esp32_adc_gem_init(0);
-#endif
 #ifdef USE_ESP32_I2C
   mrbc_mruby_esp32_i2c_gem_init(0);
 #endif
@@ -118,10 +111,6 @@ void app_main(void) {
 #ifdef USE_ESP32_LEDC
   printf("start PWM\n");
   mrbc_create_task( pwm, 0 );
-#endif
-#ifdef USE_ESP32_ADC
-  printf("start ADC\n");
-  mrbc_create_task( adc, 0 );
 #endif
 #ifdef USE_ESP32_I2C
   printf("start I2C\n");
