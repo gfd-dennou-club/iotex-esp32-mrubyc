@@ -18,19 +18,29 @@
 #include "esp_system.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "esp_smartconfig.h"
+
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
+
 
 typedef enum {
-  DISCONNECTED = 0,
-  CONNECTED
+	      DISCONNECTED = 0,
+	      CONNECTED
 } WIFI_CONNECTION_STATUS;
 
 static struct RClass* mrbc_class_esp32_wifi;
 static char* tag = "main";
 static WIFI_CONNECTION_STATUS connection_status = DISCONNECTED;
 static bool wifi_started = false;
+
+static EventGroupHandle_t s_wifi_event_group;
+static const char *TAG = "WiFi";
+
 /*! WiFi イベントハンドラ
   各種 WiFi イベントが発生した際に呼び出される
 */
+/*
 static void wifi_event_handler(void* ctx, esp_event_base_t event, int32_t event_id, void*event_data)
 {
   switch (event_id) {
@@ -70,6 +80,43 @@ static void wifi_event_handler(void* ctx, esp_event_base_t event, int32_t event_
       break;
   }
 }
+*/
+static void wifi_event_handler(void* ctx, esp_event_base_t event, int32_t event_id, void* event_data)
+{
+  static int s_retry_num = 0;
+  if (event == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+    ESP_LOGI(TAG,"STA_START");
+    esp_wifi_connect();
+  } else if (event == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+    //    if (s_retry_num < 20) {
+    connection_status = DISCONNECTED;
+    ESP_LOGI(TAG, "retry to connect to the AP");
+    esp_wifi_connect();
+    //      s_retry_num++;
+    //} else {
+    //  xEventGroupSetBits(s_wifi_event_group, BIT1);
+    // }
+    //ESP_LOGI(TAG,"connect to the AP fail");
+  } else if (event == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+    vTaskDelay(20000 / portTICK_PERIOD_MS);
+    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+    connection_status = CONNECTED;
+    ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    //s_retry_num = 0;
+    /* xEventGroupSetBits(s_wifi_event_group, BIT0); */
+  } else if (event == SC_EVENT && event_id == SC_EVENT_SCAN_DONE) {
+    ESP_LOGI(TAG, "Scan done");
+  } else if (event == SC_EVENT && event_id == SC_EVENT_FOUND_CHANNEL) {
+    ESP_LOGI(TAG, "Found channel");
+  } else if (event == SC_EVENT && event_id == SC_EVENT_GOT_SSID_PSWD) {
+    ESP_LOGI(TAG, "Got SSID and password");
+    ESP_ERROR_CHECK( esp_wifi_disconnect() );
+    ESP_ERROR_CHECK( esp_wifi_connect() );
+  } else if (event == SC_EVENT && event_id == SC_EVENT_SEND_ACK_DONE) {
+    xEventGroupSetBits(s_wifi_event_group, BIT1);
+  }
+
+}
 
 
 /*! メソッド init() 本体 : wrapper for esp_wifi_init
@@ -101,7 +148,11 @@ mrbc_esp32_wifi_start(mrb_vm* vm, mrb_value* v, int argc)
 {
   ESP_LOGI(tag, "WiFi started.");
   //  tcpip_adapter_init();
-  ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL) );
+  //  ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL) );
+  ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL) );
+  ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL) );
+  ESP_ERROR_CHECK( esp_event_handler_register(SC_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL) );
+
   ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
@@ -202,6 +253,7 @@ mrbc_esp32_wifi_setup_ent_peap(mrb_vm* vm, mrb_value* v, int argc)
 static void
 mrbc_esp32_wifi_is_connected(mrb_vm* vm, mrb_value* v, int argc)
 {
+  printf("** CONNECTED : %d", connection_status);
   if (CONNECTED == connection_status) {
     SET_TRUE_RETURN();
   }
