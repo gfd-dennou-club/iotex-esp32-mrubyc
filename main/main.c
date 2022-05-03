@@ -91,6 +91,13 @@
 #endif
 #endif
 
+//***********************************************************
+// BEGIN COMPONENTS 1: INCLUDE CLASS files associated with mruby/c
+//
+// END COMPONENTS 1
+//-----------------------------------------------------------
+
+
 static const char *TAG = "iotex-esp32-mrubyc";
 
 #define MEMORY_SIZE (1024*40)
@@ -295,6 +302,12 @@ void app_main(void) {
   mrbc_create_task(uart, 0);
 #endif
 
+//***********************************************************
+// BEGIN COMPONENTS 2: INCLUDE CLASS files associated with mruby/c
+//
+// END COMPONENTS 2
+//-----------------------------------------------------------
+ 
   //master
   vTaskDelay(1000 / portTICK_RATE_MS);
   esp_vfs_spiffs_conf_t conf = {
